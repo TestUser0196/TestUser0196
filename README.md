@@ -2,6 +2,8 @@
 
 # Репозиторий с файлами для курса UNIX-DEV-SYS
 
+Copy of me
+
 # Базовый курс по Linux
 https://dl-ido.spbstu.ru/course/view.php?id=673
 Для доступа необходимо 
