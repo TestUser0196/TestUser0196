@@ -4,6 +4,5 @@ service http
        wait                    = no
        user                    = root
        server                  = /usr/local/bin/myweb 
-       server_args	       = arg1
+       server_args	       = /srv/myweb /var/log/myweb
 }
-

@@ -7,6 +7,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+//---------------- for mmap -------------------
+
+#include <sys/mman.h>
+
 //-----------------------------------------------
 
 #define HTTP_HEADER_LEN 256
@@ -17,6 +21,8 @@
 #define REQ_END 100
 #define ERR_NO_URI -100
 #define ERR_ENDLESS_URI -101
+
+#define FILE_NAME_LEN 1000
 
 struct http_req {
 	char request[HTTP_REQUEST_LEN];
@@ -61,6 +67,7 @@ int fill_req(char *buf, struct http_req *req) {
 		// GET /test123?r=123 HTTP/1.1
 		// и т.п.
 		strncpy(req->request, buf, strlen(buf));
+		req->request[strlen(buf) /*+ 1*/] = 0;
 		strncpy(req->method, "GET", strlen("GET"));
 		a = strchr(buf, '/');
 
@@ -70,8 +77,14 @@ int fill_req(char *buf, struct http_req *req) {
 				strncpy(req->uri, a, b-a);
 				b = strchr(a, '?');
 				if(b != NULL ){
-					strncpy(req->uri_path  , a, b-a);
+					strncpy(req->uri_path  , &a[1], b-a-1);
+					req->uri_path[b-a]=0;
 					strncpy(req->uri_params, b, HTTP_URI_LEN - 1);
+				}
+				else{
+					 b = strchr(a, 'H');
+					 strncpy(req->uri_path  , &a[1], b-a-2);
+					 req->uri_path[b-a-1]=0;
 				}
 
 			} else {
@@ -88,7 +101,8 @@ int fill_req(char *buf, struct http_req *req) {
 	return 0;	
 }
 
-const char *logfile = "/home/alex/unix-dev/myweb/access.log";
+const char *logfile   = "/var/log/myweb/access.log";
+const char *base_path = "/home/sysadmin/unix-dev-sys/myweb/";
 
 int write_to_journal(char *entry) {
 	
@@ -121,31 +135,70 @@ int log_req(struct http_req *req) {
 
 int make_resp(struct http_req *req) {
 	
+
 	/*printf("HTTP/1.1 200 OK\r\n");
 	printf("Content-Type: text/html\r\n");
-	printf("\r\n");
-	printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
-	printf("<p>URI PATH: %s<p>",req->uri_path);
-	printf("</body></html>\r\n");*/
+	printf("\r\n");*/
 
-	printf("HTTP/1.1 200 OK\r\n");
-	printf("Content-Type: text/html\r\n");
-	printf("\r\n");	
+	int fdin;
+    struct stat statbuf;
+    void *mmf_ptr;
+	// определяем на основе запроса, что за файл открыть
+	char res_file[FILE_NAME_LEN] = "";
+	strncpy(res_file,base_path,strlen(base_path));
 	
-	if(req->uri_path == "/file1.html"){
-		printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
-		printf("<p>URI PATH: FILE 1<p>");
-		printf("</body></html>\r\n");	
+	if(strcmp(req->uri_path, "file1.html") == 0 || strcmp(req->uri_path, "file2.html") == 0
+       || strcmp(req->uri_path, "") == 0){
+		if(strcmp(req->uri_path, "") == 0)
+			strcat(res_file,"StartPage.html");
+		else
+			strcat(res_file,req->uri_path);
+		/*printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
+		printf("<p>URI PATH: %s<p>",res_file);
+		printf("</body></html>\r\n");*/
+		// открываем
+        if ((fdin=open(res_file, O_RDONLY)) < 0) {
+                perror(res_file);
+                return 1;
+        }
+		// размер
+        if (fstat(fdin, &statbuf) < 0) {
+                perror(res_file);
+                return 1;
+        }
+		// mmf
+        if ((mmf_ptr = mmap(0, statbuf.st_size, PROT_READ, MAP_SHARED, fdin, 0)) == MAP_FAILED) {
+                perror("myfile");
+                return 1;
+        }
+
+		// Выводим HTTP-заголовки
+		char *http_result = "HTTP/1.1 200 OK\r\n";
+		write(1,http_result,strlen(http_result));
+		char *http_contype = "Content-Type: text/html\r\n";
+		write(1,http_contype,strlen(http_contype));
+		char *header_end = "\r\n";
+		write(1,header_end,strlen(header_end));
+		// Выводим запрошенный ресурс
+        if (write(1,mmf_ptr,statbuf.st_size) != statbuf.st_size) {
+                perror("stdout");
+                return 1;
+        }
+		// Подчищаем ресурсы
+        close(fdin);
+        munmap(mmf_ptr,statbuf.st_size);
 	
 	}
-	else if(req->uri_path == "/file2.html"){
+	/*else if(strcmp(req->uri_path, "file2.html") == 0){
 		printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
 		printf("<p>URI PATH: FILE 2<p>");
 		printf("</body></html>\r\n");
-	}
+		
+	}*/
 	else{
 		printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
 		printf("<p>URI PATH: %s<p>",req->uri_path);
+		printf("<p>strcmp: %d<p>",strcmp(req->uri_path, "/file1.html"));
 		printf("</body></html>\r\n");
 	}
 
