@@ -102,7 +102,7 @@ int fill_req(char *buf, struct http_req *req) {
 }
 
 const char *logfile   = "/var/log/myweb/access.log";
-const char *base_path = "/home/sysadmin/unix-dev-sys/myweb/";
+const char *base_path = "/srv/myweb/"/*"/home/sysadmin/unix-dev-sys/myweb/"*/;
 
 int write_to_journal(char *entry) {
 	
