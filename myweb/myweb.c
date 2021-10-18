@@ -1,6 +1,14 @@
 #include <stdio.h>
 #include <string.h>
 
+//--------------- for journal -------------------
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+//-----------------------------------------------
+
 #define HTTP_HEADER_LEN 256
 #define HTTP_REQUEST_LEN 256
 #define HTTP_METHOD_LEN 6
@@ -80,18 +88,67 @@ int fill_req(char *buf, struct http_req *req) {
 	return 0;	
 }
 
-int log_req(struct http_req *req) {
-	// fprintf(stderr, "%s %s\n%s\n", req->request, req->method, req->uri);
+const char *logfile = "/home/alex/unix-dev/myweb/access.log";
+
+int write_to_journal(char *entry) {
+	
+	int fd = open(logfile, O_WRONLY | O_CREAT | O_APPEND, 0666);
+	
+	struct tm *local;
+	time_t t;
+	t = time(NULL);
+	local = localtime(&t);
+	write(fd, "Data: ", strlen("Data: "));
+	write(fd,asctime(local), strlen(asctime(local)));
+	write(fd, entry, strlen(entry));
+	write(fd, "\n", 1);
+	fsync(fd);
+	close(fd);
 	return 0;
 }
 
+int log_req(struct http_req *req) {
+	// fprintf(stderr, "%s %s\n%s\n", req->request, req->method, req->uri);
+	/*	
+	if (access(logfile,F_OK|W_OK) == 0 )
+		write(1,"File exists\n",12);
+	else 
+		write(1, "No file\n",8);  */
+	return write_to_journal(req->request);
+
+	//return 0;
+}
+
 int make_resp(struct http_req *req) {
-	printf("HTTP/1.1 200 OK\r\n");
+	
+	/*printf("HTTP/1.1 200 OK\r\n");
 	printf("Content-Type: text/html\r\n");
 	printf("\r\n");
 	printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
 	printf("<p>URI PATH: %s<p>",req->uri_path);
-	printf("</body></html>\r\n");
+	printf("</body></html>\r\n");*/
+
+	printf("HTTP/1.1 200 OK\r\n");
+	printf("Content-Type: text/html\r\n");
+	printf("\r\n");	
+	
+	if(req->uri_path == "/file1.html"){
+		printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
+		printf("<p>URI PATH: FILE 1<p>");
+		printf("</body></html>\r\n");	
+	
+	}
+	else if(req->uri_path == "/file2.html"){
+		printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
+		printf("<p>URI PATH: FILE 2<p>");
+		printf("</body></html>\r\n");
+	}
+	else{
+		printf("<html><body><title>Page title</title><h1>Page Header TestUser 0196</h1>");
+		printf("<p>URI PATH: %s<p>",req->uri_path);
+		printf("</body></html>\r\n");
+	}
+
 	return 0;
 }
 
