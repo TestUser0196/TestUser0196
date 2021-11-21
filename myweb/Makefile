@@ -9,8 +9,8 @@ LOGDIR=/var/log/myweb
 
 all: $(TARGET)
 
-myweb: myweb.c
-	cc $(CFLAGS) $^ -o $@
+myweb: myweb-mt.c
+	cc $(CFLAGS) $^ -o $@ -lpthread
 
 clean:
 	-rm -f $(TARGET) access.log
@@ -30,3 +30,5 @@ uninstall:
 
 coreon:
 	sysctl kernel.core_pattern=core
+xinetd:
+	sudo systemctl restart xinetd
